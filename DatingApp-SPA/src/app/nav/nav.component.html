@@ -22,7 +22,7 @@
       </button>
       <ul id="dropdown-basic mt-3" *dropdownMenu class="dropdown-menu"
           role="menu" aria-labelledby="button-basic">
-        <li role="menuitem"><a class="dropdown-item"><i class="fa fa-user"></i>Edit Profile</a></li>
+        <li role="menuitem"><a class="dropdown-item" [routerLink]="['/membersedit']"><i class="fa fa-user"></i>Edit Profile</a></li>
         <li class="divider dropdown-divider"></li>
         <li role="menuitem"><a class="dropdown-item" (click)="logout()" ><i class="fa fa-sign-out"></i>Loggout</a></li>
       </ul>

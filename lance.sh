@@ -1,0 +1,1 @@
+sh lance1.sh & sh lance2.sh
