@@ -1,0 +1,78 @@
+# aide ici : https://dotnetplaybook.com/deploy-a-net-core-api-with-docker/
+
+# Get Base Image (Full .NET Core SDK)
+#FROM mcr.microsoft.com/dotnet/core/sdk:3.1 AS build-env
+#WORKDIR /app
+
+FROM buildpack-deps:disco-scm AS build-env
+
+# Install .NET CLI dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libc6 \
+        libgcc1 \
+        libgssapi-krb5-2 \
+        libicu63 \
+        libssl1.1 \
+        libstdc++6 \
+        zlib1g \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install .NET Core SDK
+ENV DOTNET_SDK_VERSION 3.1.101
+
+RUN curl -SL --output dotnet.tar.gz https://dotnetcli.azureedge.net/dotnet/Sdk/$DOTNET_SDK_VERSION/dotnet-sdk-$DOTNET_SDK_VERSION-linux-x64.tar.gz \
+    && mkdir -p /usr/share/dotnet \
+    && tar -zxf dotnet.tar.gz -C /usr/share/dotnet \
+    && rm dotnet.tar.gz \
+    && ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
+
+# Enable detection of running in a container
+ENV DOTNET_RUNNING_IN_CONTAINER=true \
+    # Enable correct mode for dotnet watch (only mode supported in a container)
+    DOTNET_USE_POLLING_FILE_WATCHER=true \
+    # Skip extraction of XML docs - generally not useful within an image/container - helps performance
+    NUGET_XMLDOC_MODE=skip
+
+# Trigger first run experience by running arbitrary cmd
+RUN dotnet help
+
+# Install PowerShell global tool
+ENV POWERSHELL_VERSION=7.0.0-preview.4 \
+    POWERSHELL_DISTRIBUTION_CHANNEL=PSDocker-DotnetCoreSDK-Ubuntu-19.04
+
+RUN curl -SL --output PowerShell.Linux.x64.$POWERSHELL_VERSION.nupkg https://pwshtool.blob.core.windows.net/tool/$POWERSHELL_VERSION/PowerShell.Linux.x64.$POWERSHELL_VERSION.nupkg \
+    && mkdir -p /usr/share/powershell \
+    && dotnet tool install --add-source / --tool-path /usr/share/powershell --version $POWERSHELL_VERSION PowerShell.Linux.x64 \
+    && rm PowerShell.Linux.x64.$POWERSHELL_VERSION.nupkg \
+    && ln -s /usr/share/powershell/pwsh /usr/bin/pwsh \
+    && chmod 755 /usr/share/powershell/pwsh \
+    # To reduce image size, remove the copy nupkg that nuget keeps.
+    && find /usr/share/powershell -print | grep -i '.*[.]nupkg$' | xargs rm
+
+WORKDIR /app
+
+# Copy csproj and restore
+COPY *.csproj ./
+RUN dotnet restore
+
+# Copy everything else and build
+COPY . ./
+RUN dotnet publish -c Release -o out
+
+# Generate runtime image
+## FROM mcr.microsoft.com/dotnet/core/aspnet:3.1
+ARG REPO=mcr.microsoft.com/dotnet/core/runtime
+FROM buildpack-deps:disco-scm AS build-env2
+
+# Install ASP.NET Core
+ENV ASPNETCORE_VERSION 3.0.2
+
+RUN curl -SL --output aspnetcore.tar.gz https://dotnetcli.azureedge.net/dotnet/aspnetcore/Runtime/$ASPNETCORE_VERSION/aspnetcore-runtime-$ASPNETCORE_VERSION-linux-x64.tar.gz \
+    && tar -zxf aspnetcore.tar.gz -C /usr/share/dotnet ./shared/Microsoft.AspNetCore.App \
+    && rm aspnetcore.tar.gz
+
+WORKDIR /app
+EXPOSE 80
+COPY --from=build-env /app/out .
+ENTRYPOINT ["dotnet", "DatinApp.API.dll"]
