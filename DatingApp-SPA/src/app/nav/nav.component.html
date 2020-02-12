@@ -16,10 +16,13 @@
   
   
     <div *ngIf="loggedIn()" class="btn-group" dropdown>
-      <button id="button-basic" dropdownToggle type="button" class="btn btn-primary dropdown-toggle"
+
+     
+       <button id="button-basic" dropdownToggle type="button" class="btn btn-primary dropdown-toggle"
               aria-controls="dropdown-basic">
               Welcome {{ authService.decodeToken?.unique_name}} <span class="caret"></span>
-      </button>
+      </button> 
+    
       <ul id="dropdown-basic mt-3" *dropdownMenu class="dropdown-menu"
           role="menu" aria-labelledby="button-basic">
         <li role="menuitem"><a class="dropdown-item" [routerLink]="['/membersedit']"><i class="fa fa-user"></i>Edit Profile</a></li>
